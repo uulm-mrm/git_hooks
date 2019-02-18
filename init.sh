@@ -8,6 +8,7 @@ HOOKSPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 GIT_DIR=`readlink -f $(git rev-parse --git-dir)`
 REPOPATH=`realpath "$1"`
 PROJECT_NAME=${REPOPATH##*/}
+HOOKSPATH_REL=`realpath --relative-to="$REPOPATH" "$HOOKSPATH"`
 
 if [ -f "$REPOPATH/CMakeLists.txt" ]; then
   echo "Folder already contains CMakeLists.txt!" >&2
@@ -18,7 +19,7 @@ cat <<EOF >"$REPOPATH/CMakeLists.txt"
 cmake_minimum_required(VERSION 2.8.3)
 project($PROJECT_NAME)
 
-add_subdirectory("$HOOKSPATH" ".hooks")
+add_subdirectory("$HOOKSPATH_REL" ".hooks")
 create_git_hook()
 EOF
 
