@@ -1,0 +1,22 @@
+name: @GCF_PROJECT_NAME@
+srcdir: @GCF_SOURCE_DIR@
+builddir: @GCF_BUILD_DIR@
+clang_format_style: @GCF_CLANG_FORMAT_STYLE@
+clang_tidy_checks: @GCF_CLANG_TIDY_CHECKS@
+ignore: @GCF_IGNORE_DIRS@
+modes: @GCF_MODES@
+abort_commit: @GCF_ABORT_COMMIT@
+
+clang-format: @CLANG_FORMAT_EXECUTABLE@
+clang-tidy: @CLANG_TIDY_EXECUTABLE@
+cmake-format: @GCF_CMAKE_FORMAT_PATH@
+autopep8: @GCF_AUTOPEP_PATH@
+pylint: @GCF_PYLINT_PATH@
+
+cpp_formatters: @GCF_cpp_FORMATTERS@
+cmake_formatters: @GCF_cmake_FORMATTERS@
+py_formatters: @GCF_py_FORMATTERS@
+
+cpp_linters: @GCF_cpp_LINTERS@
+cmake_linters: @GCF_cmake_LINTERS@
+py_linters: @GCF_py_LINTERS@
