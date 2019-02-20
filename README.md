@@ -86,7 +86,7 @@ setup_git_hooks(py_FORMATTERS "") # Allowed: autopep8
 setup_git_hooks(py_LINTERS "") # Allowed: pylint
 ```
 
-You can specify multiple options in one call. Remember to re-build your package after changing the `CMakeLists.txt`. There also exist global variants of the above options (except for `IGNORE_DIRS`) under the `GCF_GLOBAL_` prefix, which you can set e.g. in your Catkin profile:
+You may only have one call to `setup_git_hooks()` per package/project. You can however specify multiple options in one call. Remember to re-build your package after changing the `CMakeLists.txt`. There also exist global variants of the above options (except for `IGNORE_DIRS`) under the `GCF_GLOBAL_` prefix, which you can set e.g. in your Catkin profile:
 
  - `GCF_GLOBAL_ABORT_COMMIT`: Same as `ABORT_COMMIT`, but for all projects
  - `GCF_GLOBAL_MODES`: Same as `MODES`, but for all projects
