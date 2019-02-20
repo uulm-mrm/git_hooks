@@ -9,9 +9,9 @@ Setup
 0. Install the formatters and linters for the file types that you want to format/lint (by default, it is enabled only for C/C++, so only these are mandatory):
  - C/C++: `sudo apt install clang-format-6.0 clang-tidy-6.0`
  - CMake: `pip install --user cmake_format`
- - Python: `pip install --user python-autopep8 pylint`
+ - Python: `sudo apt install python-autopep8 pylint`
 1. Ensure that `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON` is included in the `cmake_args` of your catkin profile. It is already added to the default profile, but if you have created your own catkin profile, you need to add the flag with `catkin config -a --cmake-args "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"`)
-2. If you use `aduulm_cmake_tooks`, you can include the git hooks in any of your packages' toplevel `CMakeList.txt` with a call to `setup_git_hooks()`. Otherwise, you may add the git_hooks repository as a submodule of your own repository with ` git submodule add "ssh://git@mrm-git.e-technik.uni-ulm.de:7678/aduulm/source/git_hooks.git" git_hooks` and then include it with `add_subdirectory("git_hooks")` and `setup_git_hooks()`.
+2. If you use `aduulm_cmake_tooks`, you can include the git hooks in any of your packages' toplevel `CMakeList.txt` with a call to `setup_git_hooks()`. Otherwise, you may add the git_hooks repository as a submodule of your own repository with ` git submodule add "ssh://git@mrm-git.e-technik.uni-ulm.de:7678/aduulm/source/git_hooks.git" git_hooks` and then include it with `add_subdirectory("git_hooks")` and `setup_git_hooks()` (or use `init.sh` as below).
 3. Run `catkin build` or `catkin build PROJECT_NAME`
 4. Check that `./run_hooks` and `$(git rev-parse --git-dir)/hooks/pre-commit` exist
 5. Add `run_hooks` to your .gitignore file
@@ -62,7 +62,7 @@ You can pass arguments to the `setup_git_hooks` or `create_git_hook` call (`setu
 # Abort commit when files need formatting
 setup_git_hooks(ABORT_COMMIT)
 
-# defines which tools should be run on pre-commit (comma-separated list of: format, tidy)
+# defines which tools should be run on pre-commit (comma-separated list of: format, lint)
 setup_git_hooks(MODES "format")
 
 # comma-separated list of directories to ignore
