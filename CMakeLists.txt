@@ -30,6 +30,9 @@ function(create_git_hook)
   if(NOT DEFINED GCF_IGNORE_DIRS)
     set(GCF_IGNORE_DIRS "")
   endif()
+  if(NOT ${GCF_ABORT_COMMIT})
+    unset(GCF_ABORT_COMMIT)
+  endif()
 
   # clang-format style
   GCF_CHECK_OPTION_OR_DEFAULT("CLANG_FORMAT_STYLE" "file")
@@ -39,7 +42,7 @@ function(create_git_hook)
   # Comma-separated list of tools to run
   GCF_CHECK_OPTION_OR_DEFAULT("MODES" "format,lint")
   # Abort commit if files would be formatted
-  GCF_CHECK_OPTION_OR_DEFAULT("ABORT_COMMIT" 0)
+  GCF_CHECK_OPTION_OR_DEFAULT("ABORT_COMMIT" FALSE)
 
   # Comma-separated lists of formatters/linters for specific file types
   GCF_CHECK_OPTION_OR_DEFAULT("cpp_FORMATTERS" "clang-format")
