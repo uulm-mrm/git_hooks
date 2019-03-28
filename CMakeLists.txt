@@ -93,18 +93,33 @@ function(create_git_hook)
   else()
     configure_file(
       "${GCF_DIR}/pre-commit.template.sh"
-      "${GCF_GIT_DIR}/hooks/pre-commit"
+      "${CMAKE_CURRENT_BINARY_DIR}/pre-commit"
       @ONLY)
+    file(COPY
+      "${CMAKE_CURRENT_BINARY_DIR}/pre-commit"
+      DESTINATION
+      "${GCF_GIT_DIR}/hooks"
+    )
 
     get_filename_component(GCF_PROJECT_NAME "${CMAKE_BINARY_DIR}" NAME)
     configure_file(
       "${GCF_DIR}/project.template.yaml"
-      "${GCF_GIT_DIR}/hooks/.${GCF_PROJECT_NAME}.config.yaml"
+      "${CMAKE_CURRENT_BINARY_DIR}/.${GCF_PROJECT_NAME}.config.yaml"
       @ONLY)
+    file(COPY
+      "${CMAKE_CURRENT_BINARY_DIR}/.${GCF_PROJECT_NAME}.config.yaml"
+      DESTINATION
+      "${GCF_GIT_DIR}/hooks/"
+    )
 
     configure_file(
       "${GCF_DIR}/run_hooks.template.sh"
-      "${GCF_GIT_ROOT}/run_hooks"
+      "${CMAKE_CURRENT_BINARY_DIR}/run_hooks"
       @ONLY)
+    file(COPY
+      "${CMAKE_CURRENT_BINARY_DIR}/run_hooks"
+      DESTINATION
+      "${GCF_GIT_ROOT}/"
+    )
   endif()
 endfunction()
