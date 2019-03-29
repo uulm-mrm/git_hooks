@@ -37,8 +37,7 @@ function(create_git_hook)
   # clang-format style
   GCF_CHECK_OPTION_OR_DEFAULT("CLANG_FORMAT_STYLE" "file")
   # Checks executed by clang-tidy
-  GCF_CHECK_OPTION_OR_DEFAULT("CLANG_TIDY_CHECKS"
-    "readability-*,bugprone-*,modernize-*,google-*")
+  GCF_CHECK_OPTION_OR_DEFAULT("CLANG_TIDY_CHECKS" "")
   # Comma-separated list of tools to run
   GCF_CHECK_OPTION_OR_DEFAULT("MODES" "format,lint")
   # Abort commit if files would be formatted

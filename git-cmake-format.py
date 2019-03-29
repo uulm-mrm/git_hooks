@@ -57,7 +57,9 @@ def callLinter(linter_name, project, files):
         sys.exit(1)
     linter_args = [project[linter_name]]
     if linter_name == 'clang-tidy':
-        linter_args.extend(['-checks=' + project["clang_tidy_checks"], '-p', project["builddir"]])
+        if project["clang_tidy_checks"]is not None:
+            linter_args.extend(['-checks=' + project["clang_tidy_checks"]])
+        linter_args.extend(['-p', project["builddir"]])
         if args.fix:
             linter_args.extend(['--fix', '-format-style', project["clang_format_style"]])
         linter_args.extend(files)
@@ -110,7 +112,7 @@ def is_subdir(path, directory):
     path = normpath(normcase(path))
     directory = normpath(normcase(directory))
     if len(path) > len(directory):
-        sep = os.path.sep.encode('ascii') if isinstance(directory, bytes) else sep
+        sep = os.path.sep.encode('ascii') if isinstance(directory, bytes) else os.path.sep
         if path.startswith(directory.rstrip(sep) + sep):
             return True
     return False
