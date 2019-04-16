@@ -24,8 +24,8 @@ function(create_git_hook)
                         "${multiValueArgs}" ${ARGN} )
 
   set(GCF_SCRIPT ${GCF_DIR}/git-cmake-format.py)
-  set(GCF_BUILD_DIR "${CMAKE_BINARY_DIR}")
-  set(GCF_SOURCE_DIR "${CMAKE_SOURCE_DIR}")
+  set(GCF_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}")
+  set(GCF_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
   if(NOT DEFINED GCF_IGNORE_DIRS)
     set(GCF_IGNORE_DIRS "")
@@ -77,13 +77,13 @@ function(create_git_hook)
   endif()
 
   execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --show-toplevel
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    WORKING_DIRECTORY ${GCF_SOURCE_DIR}
     OUTPUT_VARIABLE GCF_GIT_ROOT
     OUTPUT_STRIP_TRAILING_WHITESPACE)
 
   # --absolute-git-dir is not supported on git=2.7.3 which is installed on Ubuntu 16.04
   execute_process(COMMAND sh -c "readlink -f $(${GIT_EXECUTABLE} rev-parse --git-dir)"
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    WORKING_DIRECTORY ${GCF_SOURCE_DIR}
     OUTPUT_VARIABLE GCF_GIT_DIR
     OUTPUT_STRIP_TRAILING_WHITESPACE)
 
@@ -92,31 +92,31 @@ function(create_git_hook)
   else()
     configure_file(
       "${GCF_DIR}/pre-commit.template.sh"
-      "${CMAKE_CURRENT_BINARY_DIR}/pre-commit"
+      "${GCF_BUILD_DIR}/pre-commit"
       @ONLY)
     file(COPY
-      "${CMAKE_CURRENT_BINARY_DIR}/pre-commit"
+      "${GCF_BUILD_DIR}/pre-commit"
       DESTINATION
       "${GCF_GIT_DIR}/hooks"
     )
 
-    get_filename_component(GCF_PROJECT_NAME "${CMAKE_BINARY_DIR}" NAME)
+    get_filename_component(GCF_PROJECT_NAME "${GCF_BUILD_DIR}" NAME)
     configure_file(
       "${GCF_DIR}/project.template.yaml"
-      "${CMAKE_CURRENT_BINARY_DIR}/.${GCF_PROJECT_NAME}.config.yaml"
+      "${GCF_BUILD_DIR}/.${GCF_PROJECT_NAME}.config.yaml"
       @ONLY)
     file(COPY
-      "${CMAKE_CURRENT_BINARY_DIR}/.${GCF_PROJECT_NAME}.config.yaml"
+      "${GCF_BUILD_DIR}/.${GCF_PROJECT_NAME}.config.yaml"
       DESTINATION
       "${GCF_GIT_DIR}/hooks/"
     )
 
     configure_file(
       "${GCF_DIR}/run_hooks.template.sh"
-      "${CMAKE_CURRENT_BINARY_DIR}/run_hooks"
+      "${GCF_BUILD_DIR}/run_hooks"
       @ONLY)
     file(COPY
-      "${CMAKE_CURRENT_BINARY_DIR}/run_hooks"
+      "${GCF_BUILD_DIR}/run_hooks"
       DESTINATION
       "${GCF_GIT_ROOT}/"
     )
