@@ -151,7 +151,8 @@ def formatFiles(projects):
                 sys.stdout.flush()
                 callFormatter(formatter_name, project, files)
                 print('done')
-            addFiles(files)
+            if not project["abort_commit"] and args.hook:
+                addFiles(files)
     return filesToFormat
 
 def lintFiles(projects):
