@@ -10,6 +10,7 @@ import os
 import six
 from os.path import normpath, normcase
 import fnmatch
+from termcolor import colored
 
 formatter_patterns = {
     'cpp': ['*.h', '*.cpp', '*.hpp', '*.c', '*.cc', '*.hh', '*.cxx', '*.hxx'],
@@ -57,7 +58,7 @@ def callLinter(linter_name, project, files):
         sys.exit(1)
     linter_args = [project[linter_name]]
     if linter_name == 'clang-tidy':
-        if project["clang_tidy_checks"]is not None:
+        if project["clang_tidy_checks"] is not None:
             linter_args.extend(['-checks=' + project["clang_tidy_checks"]])
         linter_args.extend(['-p', project["builddir"]])
         if args.fix:
@@ -100,6 +101,17 @@ def getEditedFiles():
     DiffIndexRet = DiffIndexRet.decode()
 
     return DiffIndexRet.split('\n') if DiffIndexRet != "" else []
+
+def getUnstagedFiles():
+    Head = getGitHead()
+    GitArgs = ['git', 'diff', '--stat']
+    DiffIndex = subprocess.Popen(GitArgs, stdout=subprocess.PIPE)
+    DiffIndexRet = DiffIndex.stdout.read().strip()
+    DiffIndexRet = DiffIndexRet.decode()
+
+    files = DiffIndexRet.split('\n')[:-1] if DiffIndexRet != "" else []
+    files = [f.split(' | ')[0].strip() for f in files]
+    return files
 
 def matchesPattern(File, patterns):
     File = os.path.split(File)[1]
@@ -201,11 +213,20 @@ if __name__ == "__main__":
     GitRoot = getGitRoot()
 
     EditedFiles = getEditedFiles()
+    UnstagedFiles = getUnstagedFiles()
 
     if len(EditedFiles) < 1:
         sys.exit(0)
 
     EditedFiles = list(map(lambda f: os.path.join(GitRoot, f), EditedFiles))
+    UnstagedFiles = list(map(lambda f: os.path.join(GitRoot, f), UnstagedFiles))
+
+    common = set(EditedFiles) & set(UnstagedFiles)
+    if len(common) != 0:
+        print(colored("Warning: The following files have only been added partially, they will be ignored because they cannot be formatted partially!", 'yellow'))
+        for f in common:
+            print("  ", colored(f[len(GitRoot)+1:], 'yellow'))
+        EditedFiles = list(set(EditedFiles) - common)
 
     def load_project_config(filename):
         with open(filename, 'r') as f:
