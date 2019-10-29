@@ -232,7 +232,7 @@ if __name__ == "__main__":
     def load_project_config(filename):
         with open(filename, 'r') as f:
             try:
-                return yaml.load(f)
+                return yaml.load(f, Loader=yaml.SafeLoader)
             except yaml.YAMLError as exc:
                 print("Could not read project YAML file!")
                 print(filename)
@@ -262,9 +262,9 @@ if __name__ == "__main__":
         project["formattable_files"] = {}
         project["source_files"] = {}
         for f_type, patterns in formatter_patterns.items():
-            project["formattable_files"][f_type] = filter(_matchesPattern(patterns), EditedFiles)
+            project["formattable_files"][f_type] = list(filter(_matchesPattern(patterns), EditedFiles))
         for f_type, patterns in linter_patterns.items():
-            project["source_files"][f_type] = filter(_matchesPattern(patterns), EditedFiles)
+            project["source_files"][f_type] = list(filter(_matchesPattern(patterns), EditedFiles))
     total_len = lambda _dict: sum([len(l) for l in _dict.values()])
     projects = filter(lambda p: total_len(p["source_files"]) > 0 or total_len(p["formattable_files"]) > 0, projects)
 
