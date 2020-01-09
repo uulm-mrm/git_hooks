@@ -20,7 +20,7 @@ Setup
 Format all files
 ----------------
 
-The pre-commit hook only checks and formats changed files. If you want to run it on all files in the repository at once, run `./run_hooks --all`
+The pre-commit hook and the run_hooks script only check and format **staged** files by default. If you want to run it on all files in the repository at once, run `./run_hooks --all`
 
 Only run formatter or linter
 ---------------------------------
