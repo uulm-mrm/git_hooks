@@ -219,8 +219,9 @@ if __name__ == "__main__":
     if len(EditedFiles) < 1:
         sys.exit(0)
 
-    EditedFiles = list(map(lambda f: os.path.join(GitRoot, f), EditedFiles))
-    UnstagedFiles = list(map(lambda f: os.path.join(GitRoot, f), UnstagedFiles))
+    EditedFiles = list([os.path.join(GitRoot, f) for f in EditedFiles])
+    UnstagedFiles = list([os.path.join(GitRoot, f) for f in UnstagedFiles])
+
 
     common = set(EditedFiles) & set(UnstagedFiles)
     if len(common) != 0:
@@ -266,7 +267,7 @@ if __name__ == "__main__":
         for f_type, patterns in linter_patterns.items():
             project["source_files"][f_type] = list(filter(_matchesPattern(patterns), EditedFiles))
     total_len = lambda _dict: sum([len(l) for l in _dict.values()])
-    projects = filter(lambda p: total_len(p["source_files"]) > 0 or total_len(p["formattable_files"]) > 0, projects)
+    projects = [p for p in projects if total_len(p["source_files"]) > 0 or total_len(p["formattable_files"]) > 0]
 
     try:
         filesToFormat = formatFiles(projects)
