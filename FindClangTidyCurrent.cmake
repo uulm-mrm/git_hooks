@@ -31,8 +31,10 @@
 #    endif()
 
 find_program(CLANG_TIDY_EXECUTABLE
-  NAMES 
-        clang-tidy-9.0 clang-tidy-9
+  NAMES
+        clang-tidy-14 clang-tidy-13
+        clang-tidy-12 clang-tidy-11
+        clang-tidy-10 clang-tidy-9
         clang-tidy-8.0 clang-tidy-8
         clang-tidy-7.0 clang-tidy-7
         clang-tidy-6.0 clang-tidy-6
