@@ -129,9 +129,13 @@ def is_subdir(path, directory):
             return True
     return False
 
-def is_ignored(path, ignore_list):
+def is_ignored(path, base_path, ignore_list):
+    path = os.path.relpath(path, base_path)
     for Dir in ignore_list:
-        if '' != Dir and '' != os.path.commonprefix([os.path.relpath(path), os.path.relpath(Dir)]):
+        if Dir == '':
+            continue
+        Dir = os.path.relpath(os.path.join(base_path, Dir), base_path)
+        if os.path.commonprefix([path, Dir]) == Dir:
             return True
     return False
 
@@ -259,7 +263,7 @@ if __name__ == "__main__":
             project[f_type + "_linters"] = project[f_type + "_linters"].split(',') if project[f_type + "_linters"] is not None else []
         ignore = project["ignore"].split(':') if project["ignore"] is not None else []
         _matchesPattern = lambda patterns: lambda f: is_subdir(f, project["srcdir"]) and \
-            not is_ignored(f, ignore) and matchesPattern(f, patterns)
+            not is_ignored(f, project["srcdir"], ignore) and matchesPattern(f, patterns)
         project["formattable_files"] = {}
         project["source_files"] = {}
         for f_type, patterns in formatter_patterns.items():
