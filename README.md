@@ -65,8 +65,8 @@ setup_git_hooks(ABORT_COMMIT)
 # defines which tools should be run on pre-commit (comma-separated list of: format, lint)
 setup_git_hooks(MODES "format")
 
-# comma-separated list of directories to ignore
-setup_git_hooks(IGNORE_DIRS "src,include")
+# colon-separated list of directories to ignore
+setup_git_hooks(IGNORE_DIRS "src:include")
 
 # Style option for clang-format (-style=...)
 # You should probably leave this at "file", so that it uses
