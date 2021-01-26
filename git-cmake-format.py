@@ -104,7 +104,7 @@ def getEditedFiles():
 
 def getUnstagedFiles():
     Head = getGitHead()
-    GitArgs = ['git', 'diff', '--stat']
+    GitArgs = ['git', 'diff', '--stat=10000']
     DiffIndex = subprocess.Popen(GitArgs, stdout=subprocess.PIPE)
     DiffIndexRet = DiffIndex.stdout.read().strip()
     DiffIndexRet = DiffIndexRet.decode()
