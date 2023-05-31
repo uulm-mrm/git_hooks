@@ -8,6 +8,7 @@ import argparse
 import yaml
 import os
 import six
+import pathlib
 from os.path import normpath, normcase
 import fnmatch
 from termcolor import colored
@@ -64,12 +65,19 @@ def callLinter(linter_name, project, files):
         if args.fix:
             linter_args.extend(['--fix', '-format-style', project["clang_format_style"]])
         linter_args.extend(files)
+    elif linter_name == 'clangd_client':
+        linter_args.extend([project["srcdir"]])
+        linter_args.extend([project["builddir"].split('colcon_build')[0]])
+        linter_args.extend(['--clangd', project["clangd"]])
+        if args.fix:
+            linter_args.extend(['--fix'])
+        linter_args.extend(files)
     elif linter_name == 'pylint':
         linter_args.extend(files)
     else:
         print('Unknown linter (' + linter_name + ')!')
         raise Exception()
-    subprocess.check_call(linter_args)
+    subprocess.check_call(linter_args, env={**os.environ, 'PYTHONPATH': os.path.join(project['gcf_dir'], 'lsp-client')})
 
 def getGitHead():
     RevParse = subprocess.Popen(['git', 'rev-parse', '--verify', 'HEAD'],
@@ -212,7 +220,7 @@ if __name__ == "__main__":
             sys.exit(1)
 
     NoLint = False
-    if 'LINT' in os.environ.keys() and int(os.environ['LINT']) == 0:
+    if 'DISABLE_LINTING' in os.environ.keys() and int(os.environ['DISABLE_LINTING']) == 1:
         NoLint = True
 
     GitRoot = getGitRoot()

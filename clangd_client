@@ -1,0 +1,358 @@
+#!/usr/bin/env python3
+import contextlib
+import functools
+import pprint
+import pathlib
+import shutil
+import subprocess
+import sys
+import textwrap
+import re
+import threading
+import queue
+import time
+import colorama
+import argparse
+from urllib.parse import urlparse, unquote
+from colorama import Fore, Back, Style
+
+import pytest
+
+import sansio_lsp_client as lsp
+
+class TimeoutException(Exception):
+    pass
+
+progress_types = [
+    lsp.WorkDoneProgressReport
+]
+
+def u2p(uri):
+    return unquote(urlparse(uri).path)
+
+
+class ThreadedServer:
+    """
+    Gathers all messages received from server - to handle random-order-messages
+    that are not a response to a request.
+    """
+
+    def __init__(self, process, root_uri):
+        self.process = process
+        self.root_uri = root_uri
+        self.lsp_client = lsp.Client(
+            root_uri=root_uri,
+            workspace_folders=[lsp.WorkspaceFolder(uri=self.root_uri, name="Root")],
+            trace="verbose",
+        )
+        self.msgs = []
+
+        self._pout = process.stdout
+        self._pin = process.stdin
+
+        self._read_q = queue.Queue()
+        self._send_q = queue.Queue()
+
+        self.reader_thread = threading.Thread(
+            target=self._read_loop, name="lsp-reader", daemon=True
+        )
+        self.writer_thread = threading.Thread(
+            target=self._send_loop, name="lsp-writer", daemon=True
+        )
+
+        self.reader_thread.start()
+        self.writer_thread.start()
+
+        self.exception = None
+
+    # threaded
+    def _read_loop(self):
+        try:
+            while True:
+                data = self.process.stdout.read(1)
+
+                if data == b"":
+                    break
+
+                self._read_q.put(data)
+        except Exception as ex:
+            self.exception = ex
+        self._send_q.put_nowait(None)  # stop send loop
+
+    # threaded
+    def _send_loop(self):
+        try:
+            while True:
+                chunk = self._send_q.get()
+                if chunk is None:
+                    break
+
+                # print(f"\nsending: {buf}\n")
+                self.process.stdin.write(chunk)
+                self.process.stdin.flush()
+        except Exception as ex:
+            self.exception = ex
+
+    def _queue_data_to_send(self):
+        send_buf = self.lsp_client.send()
+        if send_buf:
+            self._send_q.put(send_buf)
+
+    def _read_data_received(self):
+        while not self._read_q.empty():
+            data = self._read_q.get()
+            events = self.lsp_client.recv(data)
+            for ev in events:
+                self.msgs.append(ev)
+                self._try_default_reply(ev)
+
+    def _try_default_reply(self, msg):
+        if isinstance(
+            msg,
+            (
+                lsp.ShowMessageRequest,
+                lsp.WorkDoneProgressCreate,
+                lsp.RegisterCapabilityRequest,
+                lsp.ConfigurationRequest,
+            ),
+        ):
+            msg.reply()
+
+        elif isinstance(msg, lsp.WorkspaceFolders):
+            msg.reply([lsp.WorkspaceFolder(uri=self.root_uri, name="Root")])
+
+    #        else:
+    #            print(f"Can't autoreply: {type(msg)}")
+
+    def wait_for_message_of_type(self, type_, timeout=5):
+        end_time = time.monotonic() + timeout
+        while time.monotonic() < end_time:
+            self._queue_data_to_send()
+            self._read_data_received()
+
+            # raise thread's exception if have any
+            if self.exception:
+                raise self.exception
+
+            for msg in self.msgs:
+                for t in progress_types:
+                    if isinstance(msg, t):
+                        # reset timeout
+                        end_time = time.monotonic() + timeout
+                        continue
+                for t in type_:
+                    if isinstance(msg, t):
+                        self.msgs.remove(msg)
+                        return msg
+
+            time.sleep(0.2)
+
+        raise TimeoutException(
+            f"Didn't receive {type_} in time; have: " + pprint.pformat(self.msgs)
+        )
+
+    def exit_cleanly(self):
+        # Not necessarily error, gopls sends logging messages for example
+        #        if self.msgs:
+        #            print(
+        #                "* unprocessed messages: " + pprint.pformat(self.msgs)
+        #            )
+
+        assert self.lsp_client.state == lsp.ClientState.NORMAL
+        self.lsp_client.shutdown()
+        self.wait_for_message_of_type([lsp.Shutdown])
+        self.lsp_client.exit()
+        self._queue_data_to_send()
+        self._read_data_received()
+
+class ServerEnv:
+    def __init__(self, server_cmd, project_root):
+        self.server_cmd = server_cmd
+        self.project_root = project_root
+
+    def __enter__(self):
+        self.process = subprocess.Popen(self.server_cmd.split(" "), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                        stderr=subprocess.DEVNULL)
+        self.tserver = ThreadedServer(self.process, self.project_root.as_uri())
+        return self
+
+    def __exit__(self, *args):
+        self.tserver.exit_cleanly()
+        self.process.kill()
+
+
+sevs = [lsp.DiagnosticSeverity.ERROR, lsp.DiagnosticSeverity.WARNING, lsp.DiagnosticSeverity.INFORMATION, lsp.DiagnosticSeverity.HINT]
+msg_mapping = {
+    lsp.DiagnosticSeverity.ERROR: ("Error", Fore.RED),
+    lsp.DiagnosticSeverity.WARNING: ("Warning", Fore.YELLOW),
+    lsp.DiagnosticSeverity.INFORMATION: ("Info", Fore.BLUE),
+    lsp.DiagnosticSeverity.HINT: ("Hint", Fore.BLUE),
+}
+
+def handle_files(clangd, root_dir, build_dir, files, j=8):
+    project_root = pathlib.Path(root_dir)
+    server_cmd = f"{clangd} --compile-commands-dir={build_dir} --clang-tidy --background-index -j={j}"
+    files = [pathlib.Path(f) for f in files]
+
+    with ServerEnv(server_cmd, project_root) as handle:
+        tserver = handle.tserver
+
+        # Initialized #####
+        tserver.wait_for_message_of_type([lsp.Initialized])
+
+        sources = {}
+        for path in files:
+            with open(str(path), 'r') as f:
+                contents = f.readlines()
+            sources[str(path.as_uri())] = contents
+
+            tserver.lsp_client.did_open(
+                lsp.TextDocumentItem(
+                    uri=path.as_uri(),
+                    languageId="cpp",
+                    text="".join(contents),
+                    version=0,
+                )
+            )
+
+            # tserver.lsp_client.formatting(
+            #     text_document=lsp.TextDocumentIdentifier(
+            #         uri=path.as_uri()
+            #     ),
+            #     options=lsp.FormattingOptions(tabSize=4, insertSpaces=True),
+            # )
+
+        # didn't finish this implementation, we'll just stick to using clang-format directly for now...
+        def handle_formatting(formatting):
+            fn = formatting.uri
+            edits = list(formatting.result)
+            if len(edits) == 0:
+                print(f"{fn}: No formatting necessary!")
+                return
+
+            res = ""
+            pos_line = 0
+            pos_char = 0
+            def insert_until(end_line, end_char):
+                global pos_line, pos_char, res
+
+                while start.line > pos_line:
+                    print(pos_line, pos_char, len(contents))
+                    res += contents[pos_line][pos_char:]
+                    pos_line += 1
+                    pos_char = 0
+                res += contents[pos_line][pos_char:end_char]
+                pos_char = end_char
+
+            for edit in edits:
+                start = edit.range.start
+                end = edit.range.end
+                insert_until(start.line, start.character)
+                res += edit.newText
+                pos_line = end.line
+                pos_char = end.character
+            insert_until(len(contents)-1, len(contens[-1]))
+
+            # with open(u2p(fn)), "w") as f:
+            #     f.write(res)
+            print(res)
+
+        def get_code_segment(uri, diag_range):
+            start = diag_range.start
+            end = diag_range.end
+            if uri not in sources.keys():
+                with open(u2p(uri), 'r') as f:
+                    sources[uri] = f.readlines()
+            lines = sources[uri][start.line:end.line+1]
+            if len(lines) == 0:
+                return "[[ No code here ]]"
+            length_last_line = len(lines[-1])
+            text = "".join(lines)[:-1]
+            end_char = -(length_last_line - diag_range.end.character - 1)
+            if end_char == 0:
+                end_char = None
+            new_text = text[:start.character] + Fore.BLACK + Back.YELLOW + text[start.character:end_char] + Style.RESET_ALL
+            if end_char is not None:
+                new_text += text[end_char:]
+            return new_text
+
+        def handle_diagnostics(diagnostics):
+            global error
+            fn = diagnostics.uri
+
+            diagnostics = list(diagnostics.diagnostics)
+            relpath = pathlib.Path(u2p(fn)).relative_to(project_root)
+            print()
+            if len(diagnostics) == 0:
+                print(f"{Fore.WHITE}{Back.BLUE}{relpath}{Style.RESET_ALL}: Everything is fine.")
+                return
+
+            print(f"{Fore.WHITE}{Back.BLUE}{relpath}{Style.RESET_ALL}: Got {len(diagnostics)} diagnostic messages:")
+            counts = {k: 0 for k in msg_mapping.keys()}
+            for diag in diagnostics:
+                if diag.severity == lsp.DiagnosticSeverity.ERROR:
+                    error = True
+                counts[diag.severity] += 1
+                msg, color = msg_mapping[diag.severity]
+                print()
+                print(f"{relpath}:{diag.range.start.line}:{diag.range.start.character}: {diag.source}: {color}{msg}{Style.RESET_ALL}: {diag.message} ({diag.code})")
+                print(get_code_segment(fn, diag.range))
+                if len(diag.relatedInformation) > 0:
+                    print("Related information:")
+                    for rel in diag.relatedInformation:
+                        try:
+                            rp = pathlib.Path(u2p(rel.location.uri)).relative_to(project_root)
+                        except ValueError:
+                            rp = u2p(rel.location.uri)
+                        print(f"{rp}:{rel.location.range.start.line}:{rel.location.range.start.character}: {rel.message}")
+                        print(get_code_segment(rel.location.uri, rel.location.range))
+            print()
+            print(f"{Fore.WHITE}{Back.BLUE}{relpath}{Style.RESET_ALL}: Summary: ", end='')
+            is_first = True
+            for sev in sevs:
+                count = counts[sev]
+                if count == 0:
+                    continue
+                name, color = msg_mapping[sev]
+                if not is_first:
+                    print(", ", end='')
+                print(f"{color}{count} {name}{'s' if count > 1 else ''}{Style.RESET_ALL}", end='')
+                is_first = False
+            print()
+
+        # num_files_formatted = 0
+        num_files_linted = 0
+        while num_files_linted < len(files): # or num_files_formatted < len(files)
+            msg = tserver.wait_for_message_of_type([lsp.PublishDiagnostics], timeout=5) # , lsp.DocumentFormatting
+
+            if isinstance(msg, lsp.PublishDiagnostics):
+                handle_diagnostics(msg)
+                num_files_linted += 1
+            # elif isinstance(msg, lsp.DocumentFormatting):
+            #     handle_formatting(msg)
+            #     num_files_formatted += 1
+            else:
+                raise Exception("Unknown message type:", type(msg))
+
+if __name__ == "__main__":
+    colorama.init()
+    error = False
+
+    parser = argparse.ArgumentParser(prog='clangd_client', description='Runs clangd on a set of source files for which a compile_commands.json exists, and prints the diagnostic messages')
+    parser.add_argument('--clangd', type=str, default='clangd')
+    parser.add_argument('--fix', action='store_true')
+    parser.add_argument('--format', action='store_true')
+    parser.add_argument('root_dir', type=str)
+    parser.add_argument('build_dir', type=str)
+    parser.add_argument('files', type=str, nargs='+')
+
+    args = parser.parse_args()
+
+    if args.fix:
+        raise RuntimeError('Fixing is not yet implemented, sorry!')
+    if args.format:
+        raise RuntimeError('Formatting is not yet implemented, sorry! Please use clang-format for this, it should be fast enough...')
+
+    error = handle_files(args.clangd, args.root_dir, args.build_dir, args.files)
+
+    sys.exit(1 if error else 0)
