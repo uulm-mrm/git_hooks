@@ -190,6 +190,7 @@ msg_mapping = {
 }
 
 def handle_files(clangd, root_dir, build_dir, files, j=8):
+    error = False
     project_root = pathlib.Path(root_dir)
     server_cmd = f"{clangd} --compile-commands-dir={build_dir} --clang-tidy --background-index -j={j}"
     files = [pathlib.Path(f) for f in files]
@@ -277,7 +278,7 @@ def handle_files(clangd, root_dir, build_dir, files, j=8):
             return new_text
 
         def handle_diagnostics(diagnostics):
-            global error
+            nonlocal error
             fn = diagnostics.uri
 
             diagnostics = list(diagnostics.diagnostics)
@@ -333,10 +334,10 @@ def handle_files(clangd, root_dir, build_dir, files, j=8):
             #     num_files_formatted += 1
             else:
                 raise Exception("Unknown message type:", type(msg))
+    return error
 
 if __name__ == "__main__":
     colorama.init()
-    error = False
 
     parser = argparse.ArgumentParser(prog='clangd_client', description='Runs clangd on a set of source files for which a compile_commands.json exists, and prints the diagnostic messages')
     parser.add_argument('--clangd', type=str, default='clangd')
