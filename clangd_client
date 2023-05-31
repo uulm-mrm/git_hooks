@@ -235,7 +235,7 @@ def handle_files(clangd, root_dir, build_dir, files, j=8):
             pos_line = 0
             pos_char = 0
             def insert_until(end_line, end_char):
-                global pos_line, pos_char, res
+                nonlocal pos_line, pos_char, res
 
                 while start.line > pos_line:
                     print(pos_line, pos_char, len(contents))
@@ -252,7 +252,7 @@ def handle_files(clangd, root_dir, build_dir, files, j=8):
                 res += edit.newText
                 pos_line = end.line
                 pos_char = end.character
-            insert_until(len(contents)-1, len(contens[-1]))
+            insert_until(len(contents)-1, len(contents[-1]))
 
             # with open(u2p(fn)), "w") as f:
             #     f.write(res)

@@ -32,6 +32,9 @@
 
 find_program(CLANGD_EXECUTABLE
   NAMES
+        clangd-20 clangd-19
+        clangd-18 clangd-17
+        clangd-16 clangd-15
         clangd-14 clangd-13
         clangd-12 clangd-11
         clangd-10 clangd-9

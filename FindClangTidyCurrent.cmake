@@ -32,6 +32,9 @@
 
 find_program(CLANG_TIDY_EXECUTABLE
   NAMES
+        clang-tidy-20 clang-tidy-19
+        clang-tidy-18 clang-tidy-17
+        clang-tidy-16 clang-tidy-15
         clang-tidy-14 clang-tidy-13
         clang-tidy-12 clang-tidy-11
         clang-tidy-10 clang-tidy-9

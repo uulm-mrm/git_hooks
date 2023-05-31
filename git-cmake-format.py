@@ -234,9 +234,8 @@ if __name__ == "__main__":
     EditedFiles = list([os.path.join(GitRoot, f) for f in EditedFiles])
     UnstagedFiles = list([os.path.join(GitRoot, f) for f in UnstagedFiles])
 
-
     common = set(EditedFiles) & set(UnstagedFiles)
-    if len(common) != 0:
+    if args.mode != 'all' and len(common) != 0:
         print(colored("Warning: The following files have only been added partially, they will be ignored because they cannot be formatted partially!", 'yellow'))
         for f in common:
             print("  ", colored(f[len(GitRoot)+1:], 'yellow'))
