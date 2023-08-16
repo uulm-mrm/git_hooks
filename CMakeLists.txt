@@ -45,7 +45,7 @@ function(create_git_hook)
 
   # Comma-separated lists of formatters/linters for specific file types
   GCF_CHECK_OPTION_OR_DEFAULT("cpp_FORMATTERS" "clang-format")
-  GCF_CHECK_OPTION_OR_DEFAULT("cpp_LINTERS" "clang-tidy")
+  GCF_CHECK_OPTION_OR_DEFAULT("cpp_LINTERS" "clangd_client")
   GCF_CHECK_OPTION_OR_DEFAULT("cmake_FORMATTERS" "") # cmake-format
   GCF_CHECK_OPTION_OR_DEFAULT("cmake_LINTERS" "")
   GCF_CHECK_OPTION_OR_DEFAULT("py_FORMATTERS" "") # autopep8
@@ -71,6 +71,9 @@ function(create_git_hook)
 
   if("clang-tidy" IN_LIST GCF_cpp_LINTERS_LIST)
     find_package(ClangTidyCurrent REQUIRED)
+  endif()
+  if("clangd_client" IN_LIST GCF_cpp_LINTERS_LIST)
+    find_package(ClangdCurrent REQUIRED)
   endif()
   if("pylint" IN_LIST GCF_py_LINTERS_LIST)
     find_program(GCF_PYLINT_PATH pylint REQUIRED)
