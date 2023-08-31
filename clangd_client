@@ -2,7 +2,6 @@
 import contextlib
 import functools
 import pprint
-import pathlib
 import shutil
 import subprocess
 import sys
@@ -13,6 +12,8 @@ import queue
 import time
 import colorama
 import argparse
+import json
+from pathlib import Path
 from urllib.parse import urlparse, unquote
 from colorama import Fore, Back, Style
 
@@ -72,7 +73,8 @@ class ThreadedServer:
                 data = self.process.stdout.read(1)
 
                 if data == b"":
-                    break
+                    msg = self.process.stderr.read()
+                    raise Exception("Clangd exited! Here's the log:\n" + msg.decode('utf-8'))
 
                 self._read_q.put(data)
         except Exception as ex:
@@ -103,6 +105,7 @@ class ThreadedServer:
             data = self._read_q.get()
             events = self.lsp_client.recv(data)
             for ev in events:
+                # print(ev)
                 self.msgs.append(ev)
                 self._try_default_reply(ev)
 
@@ -138,6 +141,7 @@ class ThreadedServer:
                 for t in progress_types:
                     if isinstance(msg, t):
                         # reset timeout
+                        self.msgs.remove(msg)
                         end_time = time.monotonic() + timeout
                         continue
                 for t in type_:
@@ -172,7 +176,7 @@ class ServerEnv:
 
     def __enter__(self):
         self.process = subprocess.Popen(self.server_cmd.split(" "), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                        stderr=subprocess.DEVNULL)
+                                        stderr=subprocess.PIPE)
         self.tserver = ThreadedServer(self.process, self.project_root.as_uri())
         return self
 
@@ -190,16 +194,28 @@ msg_mapping = {
 }
 
 def handle_files(clangd, root_dir, build_dir, files, j=8):
+    compile_commands_path = Path(build_dir) / "compile_commands.json"
+    if not compile_commands_path.exists():
+        raise Exception(f"{compile_commands_path} does not exist, probably the source code was not built?")
+
+    with open(str(compile_commands_path), 'r') as f:
+        cmds = json.loads(f.read())
+        cmds_files = set([cmd["file"] for cmd in cmds])
+        for f in files:
+            if f not in cmds_files:
+                raise Exception(f"File {f} not in compile_commands.json! Maybe the source code was not built yet?")
+        del cmds
+
     error = False
-    project_root = pathlib.Path(root_dir)
+    project_root = Path(root_dir)
     server_cmd = f"{clangd} --compile-commands-dir={build_dir} --clang-tidy --background-index -j={j}"
-    files = [pathlib.Path(f) for f in files]
+    files = [Path(f) for f in files]
 
     with ServerEnv(server_cmd, project_root) as handle:
         tserver = handle.tserver
 
         # Initialized #####
-        tserver.wait_for_message_of_type([lsp.Initialized])
+        tserver.wait_for_message_of_type([lsp.Initialized], 60)
 
         sources = {}
         for path in files:
@@ -282,7 +298,7 @@ def handle_files(clangd, root_dir, build_dir, files, j=8):
             fn = diagnostics.uri
 
             diagnostics = list(diagnostics.diagnostics)
-            relpath = pathlib.Path(u2p(fn)).relative_to(project_root)
+            relpath = Path(u2p(fn)).relative_to(project_root)
             print()
             if len(diagnostics) == 0:
                 print(f"{Fore.WHITE}{Back.BLUE}{relpath}{Style.RESET_ALL}: Everything is fine.")
@@ -302,7 +318,7 @@ def handle_files(clangd, root_dir, build_dir, files, j=8):
                     print("Related information:")
                     for rel in diag.relatedInformation:
                         try:
-                            rp = pathlib.Path(u2p(rel.location.uri)).relative_to(project_root)
+                            rp = Path(u2p(rel.location.uri)).relative_to(project_root)
                         except ValueError:
                             rp = u2p(rel.location.uri)
                         print(f"{rp}:{rel.location.range.start.line}:{rel.location.range.start.character}: {rel.message}")
@@ -324,7 +340,7 @@ def handle_files(clangd, root_dir, build_dir, files, j=8):
         # num_files_formatted = 0
         num_files_linted = 0
         while num_files_linted < len(files): # or num_files_formatted < len(files)
-            msg = tserver.wait_for_message_of_type([lsp.PublishDiagnostics], timeout=5) # , lsp.DocumentFormatting
+            msg = tserver.wait_for_message_of_type([lsp.PublishDiagnostics], timeout=60) # , lsp.DocumentFormatting
 
             if isinstance(msg, lsp.PublishDiagnostics):
                 handle_diagnostics(msg)
