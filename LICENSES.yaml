@@ -1,0 +1,17 @@
+external:
+  - name: git-cmake-format
+    copyright: 2014 Open Source Robotics Foundation, Inc.
+    files:
+      - CMakeLists.txt
+      - git-cmake-format.py
+      - FindClangFormat.cmake
+      - pre-commit.template.sh
+    license: Unlicense
+    url: https://github.com/kbenzie/git-cmake-format
+    modified: true
+  - name: lsp-client
+    files:
+      - lsp-client/**/*
+    license: MIT
+    url: https://github.com/PurpleMyst/sansio-lsp-client
+    modified: true
