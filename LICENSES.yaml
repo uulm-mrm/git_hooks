@@ -1,5 +1,5 @@
 project:
-  - files: **/*
+  - files: "**/*"
     copyright:
       - 2023, Jan Strohbeck
     license: Apache-2.0
