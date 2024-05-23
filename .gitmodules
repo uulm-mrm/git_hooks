@@ -1,4 +1,4 @@
 [submodule "lsp-client"]
-	path = lsp-client
-	url = ../../../aduulm/external/sansio-lsp-client.git
-	branch = develop
+  path = lsp-client
+  url = https://github.com/uulm-mrm/sansio-lsp-client.git
+  branch = develop
