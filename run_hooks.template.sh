@@ -1,4 +1,4 @@
 #!/bin/bash
-"@PYTHON_EXECUTABLE@" \
+"@Python_EXECUTABLE@" \
 	"@GCF_SCRIPT@" \
 	$@

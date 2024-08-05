@@ -1,8 +1,8 @@
 project(git-clang-format-cmake)
-cmake_minimum_required(VERSION 3.3)
+cmake_minimum_required(VERSION 3.10)
 
 find_package(Git REQUIRED)
-find_package(PythonInterp REQUIRED)
+find_package(Python COMPONENTS Interpreter REQUIRED)
 
 set(GCF_DIR ${CMAKE_CURRENT_LIST_DIR} PARENT_SCOPE)
 
